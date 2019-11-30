@@ -1,29 +1,53 @@
 import os
 import secrets
-from flask import request,jsonify
+from flask import request,jsonify,session
 from app import app,db,bcrypt, mail
 from app.models import User,Post,Category
 from flask_login import login_user,logout_user,current_user,login_required
 from flask_mail import Message
 import json
-# Create a User
+
+
+@app.route("/emailverification/<code>")
+@login_required
+def emailVerification(code):
+        if session['key'+str(current_user.id)]==code:
+                session.pop['key'+str(current_user.id)]
+                return 'email verified'
+                
+        else:
+                return 'token expired'
+
 @app.route('/register', methods=['POST'])
 def add_user():
         if current_user.is_authenticated:
-                return 'user already logged in'
+                 session['key'+str(current_user.id)] = secrets.token_hex(8)
+                 msg=Message('Email verification request',sender='donotreplytesting121@gmail.com',recipients=['mfsiddique11@gmail.com'])
+                 msg.body=session['key'+str(current_user.id)]
+                 print(session['key'+str(current_user.id)])
+                 mail.send(msg)
+                
+                 return 'user already logged in'
                 
         if User.query.filter_by(email=request.json['email']).first()==None:
                 if request.json['password']==request.json['confirmpassword']:
+                        session['key'+str(current_user.id)] = secrets.token_hex(8)
+                        msg=Message('Email verification request',sender='donotreplytesting121@gmail.com',recipients=['mfsiddique11@gmail.com'])
+                        msg.body=session['key'+str(current_user.id)]
+                        mail.send(msg)
+
                         hashed_password = bcrypt.generate_password_hash(request.json['password']).decode('utf-8')
                         
                         new_user = User(email=request.json['email'], password=hashed_password)
 
                         db.session.add(new_user)
                         db.session.commit()
+                        login_user(new_user)
                         return 'user created'
                 else:
                         return 'password donot match'        
         else:
+
                 return 'user already exists'
 
 @app.route('/login',methods=['POST'])
@@ -48,7 +72,7 @@ def logout():
 
 @app.route('/change_password', methods=['POST'])
 @login_required
-def account(): 
+def change_password(): 
         if current_user.is_authenticated:
                 user=User.query.get(current_user.id)
                 if user and bcrypt.check_password_hash(user.password,request.json['oldpassword']):
@@ -98,7 +122,9 @@ def delete_category(category_id):
         db.session.delete(category)
         db.session.commit()
         return "deleted" 
-             
+
+
+                   
 # def save_picture(pic):
 #         random_hex=secrets.token_hex(8)
 #         _,f_ext=os.path.splitext(pic.filename)
@@ -169,15 +195,21 @@ def delete_post(post_id):
         else:
                 abort(403)
              
-
-@app.route("/password_reset",methods=['POST'])
-def reset_password():
-        user=User.query.filter_by(email=request.json['email'])
-        if user:
-                msg=Message('password reset rquest',sender='noreply@demo.com',recipients=[user.email])
-                msg.body=f'''
-                use token 1234567 to reset your password 
-                '''
-                mail.send(msg)
+@app.route('/post/search',methods=['GET'])
+@login_required 
+def search_post():
+        if 'itemname' in request.args and 'location' in request.args:
+                posts=Post.query.filter_by(itemName=request.args.get('itemname'),location=request.args.get('location')).all()
+                print(posts)
+                return 'success'
+        elif 'itemname' in request.args: 
+                posts=Post.query.filter_by(itemName=request.args.get('itemname')).all()
+                print(posts)
+                return 'success' 
+        elif 'location' in request.args:
+                posts=Post.query.filter_by(location=request.args.get('location')).all()
+                print(posts)
+                return 'success'      
         else:
-                return "email not exist"        
+                return 'add query to the search'
+                

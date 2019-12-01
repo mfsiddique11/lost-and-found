@@ -39,6 +39,9 @@ api list for post:
 
 /post/id
 
+
+/post/search?location=?&itemName=?
+
 api list for category
 
 /category/add

@@ -1,26 +1,31 @@
 from flask import Flask,session
 from flask_sqlalchemy import SQLAlchemy 
+from flask_migrate import Migrate
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from flask_mail import Mail
-import os
+from app.config import Config
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY']='8be8c10171ba90cd276afbaa99288ffa'
+
+app.config.from_object(Config)
+
 db = SQLAlchemy(app)
+migrate=Migrate(app,db)
+ 
 bcrypt=Bcrypt(app)
+
 login_manager=LoginManager(app)
-login_manager.login_view='login'
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'donotreplytesting121@gmail.com'
-app.config['MAIL_PASSWORD'] = '!qa2ws3ed4rf'
+
+login_manager.login_view='users.login'
+
 mail=Mail(app)
 
 
+from app.users.routes import users
+from app.posts.routes import posts
+from app.categories.routes import categories
 
-
-from app import routes
+app.register_blueprint(users)
+app.register_blueprint(posts)
+app.register_blueprint(categories)

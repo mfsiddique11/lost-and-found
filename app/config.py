@@ -1,5 +1,6 @@
 class Config:
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///db.sqlite'
+        #SQLALCHEMY_DATABASE_URI = 'sqlite:///db.sqlite'
+        SQLALCHEMY_DATABASE_URI = 'mysql://root:''db:3306/lostandfound' 
         SQLALCHEMY_TRACK_MODIFICATIONS = False
         SECRET_KEY='8be8c10171ba90cd276afbaa99288ffa'
         MAIL_SERVER = 'smtp.gmail.com'

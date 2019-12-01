@@ -8,24 +8,51 @@ command:
 use postman or whatever you like.
 
 api list for user:
+
 /register
+
+
 /login
+
+
 /changepassword
+
+
 /emailverification/<?>
+
+
 /logout
 
 api list for post:
+
 /post/create
+
+
 /post/show
+
+
 /post/id/update
+
+
 /post/id/delete
+
+
 /post/id
 
 api list for category
+
 /category/add
+
+
 /category/show
+
+
 /category/id/update
+
+
 /category/id/delete
+
+
 /category/id
 
 

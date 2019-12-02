@@ -1,4 +1,4 @@
-from python:3.6.8
+FROM python:3.6.8
 
 WORKDIR /app
 
@@ -6,6 +6,8 @@ COPY . /app
 
 RUN pip3 install -r requirements.txt
 
-ENTRYPOINT [python3]
+#ENTRYPOINT ["python"]
 
-CMD [run.py]
+RUN python3 run.py
+#CMD ["run.py"]
+

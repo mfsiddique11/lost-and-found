@@ -5,6 +5,9 @@ from app.models import Category
 categories=Blueprint('categories','__name__')
 
 
+@categories.route('/')
+def q():
+        return 'hayee'
 
 @categories.route('/category/add',methods=['POST'])
 def add_category():

@@ -9,6 +9,10 @@ import secrets
 
 users=Blueprint('users','__name__')
 
+@users.route('/loginnotify')
+def login_notify():
+        return 'please login first'
+
 @users.route('/register', methods=['POST'])
 def add_user():
         if current_user.is_authenticated:
@@ -80,16 +84,13 @@ def login():
                 return 'wrong email or pass'   
 
 @users.route('/logout')
+@login_required
 def logout(): 
-        if current_user.is_authenticated:
-                logout_user() 
-                return 'user logged out'  
-        else:
-                return 'please login'                  
+        logout_user() 
+        return 'user logged out'                  
 
 
 @users.route('/changepassword', methods=['POST'])
-@login_required
 def change_password(): 
         if current_user.is_authenticated:
                 if User.query.get(current_user.id).confirm_id==False:

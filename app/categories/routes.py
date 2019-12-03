@@ -6,8 +6,8 @@ categories=Blueprint('categories','__name__')
 
 
 @categories.route('/')
-def q():
-        return 'hayee'
+def check():
+        return 'working'
 
 @categories.route('/category/add',methods=['POST'])
 def add_category():
@@ -31,14 +31,14 @@ def get_category(category_id):
         category=Category.query.get_or_404(category_id)
         return category.name
 
-@categories.route('/category/<int:category_id>/update',methods=['POST'])
+@categories.route('/category/<int:category_id>/update',methods=['PUT'])
 def update_category(category_id):
         category=Category.query.get_or_404(category_id)
         category.name=request.json['name']
         db.session.commit()
         return 'updated succesfuly'
 
-@categories.route('/category/<int:category_id>/delete',methods=['POST'])
+@categories.route('/category/<int:category_id>/delete',methods=['DELETE'])
 def delete_category(category_id):
         category=Category.query.get_or_404(category_id)
         db.session.delete(category)

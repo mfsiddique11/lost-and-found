@@ -8,8 +8,6 @@ command:
 
 use postman or whatever you like.
 
-here's the link for my postman workspace
-https://www.getpostman.com/collections/b5768920c8ba8f029c65
 
 
 api list for user:

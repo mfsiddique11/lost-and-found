@@ -25,3 +25,6 @@ SQLAlchemy==1.3.11
 Werkzeug==0.16.0
 pytest
 requests
+jsonschema
+mock
+flask_testing

@@ -38,6 +38,8 @@ def register():
     db.session.commit()
     login_user(new_user)
     sendmail(current_user.id, request.json['email'])
+    return jsonify(current_user.id),201
+
     return Response(status=201)
 
 
@@ -66,9 +68,9 @@ def login():
         return jsonify({"Error": 'already loggedIn'}), 404
 
     user = User.query.filter_by(email=request.json['email']).first()
-
-    if not user or bcrypt.check_password_hash(user.password, request.json['password']):
-        return jsonify({"Error": 'Wrong email or password'}), 401
+    print(user.password)
+    if not user and bcrypt.check_password_hash(user.password, request.json['password']):
+        return jsonify({"Error": 'Wrong email or password'},user.email,user.password), 401
 
     if not user.confirm_id:
         login_user(user)

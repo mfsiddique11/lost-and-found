@@ -1,6 +1,7 @@
-from flask import jsonify, request, Response
-from app.models import Category
+from flask import jsonify
 from functools import wraps
+
+from app.models.category_model import Category
 
 
 def category_required(func):

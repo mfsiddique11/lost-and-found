@@ -11,6 +11,9 @@ class Config:
 
 
 class TestingConfig:
+    LOGIN_DISABLED = False,
+    TESTING = True,  # Propagate exceptions
+    MAIL_SUPPRESS_SEND = True,
     SQLALCHEMY_DATABASE_URI = 'sqlite:///db.sqlite'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SECRET_KEY = '8be8c10171ba90cd276afbaa99288ffa'

@@ -10,6 +10,7 @@ services:
 
     links:
     - db
+    - rabbit
     entrypoint: ./docker-entrypoint.sh
 
   db:
@@ -20,6 +21,22 @@ services:
    environment:
     MYSQL_ROOT_PASSWORD: "yes"
     MYSQL_DATABASE: lostandfound
-    
-    
+
+  rabbit:
+     hostname: rabbit
+     image: rabbitmq:management
+     environment:
+       - RABBITMQ_DEFAULT_USER=rabbitmq
+       - RABBITMQ_DEFAULT_PASS=rabbitmq
+     ports:
+       - "5673:5672"
+       - "15672:15672"
+  celery:
+    build: .
+    command: celery worker -A app.celery --loglevel=info
+    volumes:
+      - .:/app
+    links:
+      - rabbit
+
 

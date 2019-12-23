@@ -1,15 +1,15 @@
 import secrets
 from datetime import datetime
 
-from flask import request, jsonify, session, Blueprint, Response
+from flask import request, jsonify, session, Blueprint, url_for
 from flask_login import login_user, logout_user, current_user, login_required
 from flask_mail import Message
 
-from app import db, bcrypt, mail
-from app.models import User
-from app.users.schemas import *
-from app.validate_json import validate_json
+from app import db, bcrypt, mail, celery
+from app.models.user_model import User
 
+from app.web.users.schemas import *
+from app.common.decorators.validate_json import validate_json
 
 users = Blueprint('users', '__name__')
 
@@ -37,10 +37,9 @@ def register():
     db.session.add(new_user)
     db.session.commit()
     login_user(new_user)
-    sendmail(current_user.id, request.json['email'])
-    return jsonify(current_user.id),201
 
-    return Response(status=201)
+    resp = sendmail(current_user.id, request.json['email'])
+    return jsonify(current_user.id), 201
 
 
 @users.route("/user/confirm-email/<token>")
@@ -70,7 +69,7 @@ def login():
     user = User.query.filter_by(email=request.json['email']).first()
     print(user.password)
     if not user and bcrypt.check_password_hash(user.password, request.json['password']):
-        return jsonify({"Error": 'Wrong email or password'},user.email,user.password), 401
+        return jsonify({"Error": 'Wrong email or password'}, user.email, user.password), 401
 
     if not user.confirm_id:
         login_user(user)
@@ -83,6 +82,7 @@ def login():
 
 @users.route('/user/change-password', methods=['POST'])
 @validate_json(change_password_schema)
+# @login_required
 def change_password():
     if not current_user.is_authenticated:
         return jsonify({"Error": 'Not loggedIn'}), 404
@@ -111,11 +111,21 @@ def logout():
     return jsonify({"Action": 'Logged Out'}), 200
 
 
+@users.route('/user', methods=['DELETE'])
+def delete_user():
+    user = User.query.all()
+    for u in user:
+        db.session.delete(u)
+        db.session.commit()
+    return jsonify({"Action": 'del hogae'}), 200
+
+
+@celery.task
 def sendmail(uid, recipient):
     session['token' + str(uid)] = secrets.token_hex(8)
     msg = Message('Email verification request',
                   sender='donotreplytesting121@gmail.com',
                   recipients=[recipient])
-    msg.body = session['token' + str(uid)]
+    msg.body = url_for("users.confirm_email", token=session['token' + str(uid)], _external=True)
     mail.send(msg)
-    return jsonify({"Action": 'verification email has been sent'}), 201
+    return 'verification email has been sent'

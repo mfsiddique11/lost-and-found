@@ -1,8 +1,8 @@
 from flask import request, jsonify, Blueprint
 from app import db
-from app.categories.schemas import *
-from app.models import Category
-from app.validate_json import validate_json
+from app.common.decorators.validate_json import validate_json
+from app.models.category_model import Category
+from app.web.categories.schemas import *
 
 categories = Blueprint('categories', '__name__')
 

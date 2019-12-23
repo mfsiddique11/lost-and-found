@@ -28,3 +28,4 @@ requests
 jsonschema
 mock
 flask_testing
+celery

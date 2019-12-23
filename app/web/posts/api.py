@@ -1,16 +1,16 @@
 import os
 import secrets
 
-from flask import request, jsonify, Blueprint, Response
+from flask import request, jsonify, Blueprint
 from flask_login import current_user, login_required
 
 from app import app, db
-from app.category_required import category_required
-from app.models import Category
-from app.models import Post
-from app.posts.schemas import *
-from app.validate_json import validate_json
+from app.decorators.category_required import category_required
 
+from app.common.decorators.validate_json import validate_json
+from app.models.category_model import Category
+from app.models.post_model import Post
+from app.web.posts.schemas import update_post_schema, add_post_schema
 
 posts = Blueprint('posts', '__name__')
 

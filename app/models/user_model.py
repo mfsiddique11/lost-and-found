@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask_login import UserMixin
-from app import db, login_manager
+from app import db, login_manager, bcrypt
 
 
 @login_manager.user_loader
@@ -10,13 +10,77 @@ def load_user(user_id):
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), index=True, unique=True)
-    email = db.Column(db.String(120), index=True, unique=True)
-    password = db.Column(db.String(128))
-    created_on = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    confirmed_on = db.Column(db.DateTime, index=True)
-    confirm_id = db.Column(db.Boolean, unique=False, default=False)
-    posts = db.relationship('Post', backref='poster', lazy='dynamic')
+    username = db.Column(db.String(255), index=True, unique=True, nullable=False)
+    email = db.Column(db.String(255), index=True, unique=True, nullable=False)
+    password = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    confirmed_at = db.Column(db.DateTime, default=None)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
 
-    def __repr__(self):
-        return '<User {}>'.format(self.email, self.username)
+    profile = db.relationship('Profile', backref='user_profile', cascade="all, delete-orphan", lazy='dynamic',
+                              uselist=False)
+    posts = db.relationship('Post', backref='poster', cascade="all, delete-orphan", lazy='dynamic')
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'))
+
+    def __init__(self, username, email, password, is_admin=False):
+        self.username = username
+        self.email = email
+        self.is_admin = is_admin
+        self.hash_password(password)
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "is_confirmed": True if self.confirmed_at else False,
+            "is_admin": self.is_admin
+        }
+
+    def hash_password(self, password):
+        self.password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def verify_password(self, password):
+        return bcrypt.check_password_hash(password, self.password)
+
+    def change_password(self, password):
+        self.password(password)
+
+    def confirm_email(self):
+        self.confirmed_at = datetime.utcnow()
+
+
+class Role(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), db.Enum("owner", "admin", "member"), unique=True, nullable=False)
+
+    users = db.relationship('User', backref='user_role', cascade="all, delete-orphan", lazy='dynamic')
+
+    def __init__(self, name):
+        self.name = name
+
+
+class Profile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(64), index=True)
+    last_name = db.Column(db.String(64), index=True)
+    address = db.Column(db.String(64), index=True)
+    phone = db.Column(db.String(64), index=True)
+
+    pictures = db.relationship('Picture', backref='user_pic', cascade="all, delete-orphan", lazy='dynamic')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+    def __init__(self, first_name, last_name, address, phone):
+        self.first_name = first_name
+        self.last_name = last_name
+        self.address = address
+        self.phone = phone
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "address": self.address,
+            "phone": self.phone
+        }

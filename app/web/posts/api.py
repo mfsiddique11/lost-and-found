@@ -1,10 +1,10 @@
 import os
 import secrets
 
-from flask import request, jsonify, Blueprint
+from flask import request, jsonify, Blueprint, current_app
 from flask_login import current_user, login_required
 
-from app import app, db
+from app import db
 from app.decorators.category_required import category_required
 
 from app.common.decorators.validate_json import validate_json
@@ -24,7 +24,7 @@ def add_post():
     image_name, image_ext = os.path.splitext(image.filename)
     picture = image_name + secrets.token_hex(4) + image_ext
 
-    image_path = os.path.join(app.root_path, 'static/pictures', picture)
+    image_path = os.path.join(current_app.root_path, 'static/pictures', picture)
     image.save(image_path)
 
     new_post = Post(itemName=request.form['itemName'],
@@ -78,14 +78,14 @@ def update_post(post_id):
     if 'location' in request.form:
         post.location = request.form['location']
     if 'image' in request.files:
-        os.remove(os.path.join(app.root_path, 'static/pictures', post.pic))
+        os.remove(os.path.join(current_app.root_path, 'static/pictures', post.pic))
 
         image = request.files['image']
 
         image_name, image_ext = os.path.splitext(image.filename)
         picture = image_name + secrets.token_hex(4) + image_ext
 
-        image_path = os.path.join(app.root_path, 'static/pictures', picture)
+        image_path = os.path.join(current_app.root_path, 'static/pictures', picture)
         image.save(image_path)
         post.pic = picture
         db.session.commit()
@@ -104,7 +104,7 @@ def delete_post(post_id):
     if post.poster != current_user:
         return jsonify({"Error": 'No post found'}), 404
 
-    os.remove(os.path.join(app.root_path, 'static/pictures', post.pic))
+    os.remove(os.path.join(current_app.root_path, 'static/pictures', post.pic))
     db.session.delete(post)
     db.session.commit()
     return jsonify({"Action": 'post deleted'}), 201

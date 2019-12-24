@@ -6,5 +6,5 @@ COPY . /app
 
 RUN pip3 install -r requirements.txt
 
-RUN chmod +x ./docker-entrypoint.sh
+RUN chmod +x ./run_web.sh
 

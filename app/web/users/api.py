@@ -1,11 +1,9 @@
-import secrets
 from datetime import datetime
 
-from flask import request, jsonify, session, Blueprint, url_for
+from flask import request, jsonify, session, Blueprint
 from flask_login import login_user, logout_user, current_user, login_required
-from flask_mail import Message
 
-from app import db, bcrypt, mail, celery
+from app import db, bcrypt
 from app.models.user_model import User
 
 from app.web.users.schemas import *
@@ -17,11 +15,13 @@ users = Blueprint('users', '__name__')
 @users.route('/user/register', methods=['POST'])
 @validate_json(add_user_schema)
 def register():
+    from app.common.email import sendmail
+
     if current_user.is_authenticated:
         return jsonify({"Error": 'already loggedIn'}), 404
 
     if User.query.filter_by(email=request.json['email']).first() is not None:
-        return jsonify({"Error": 'email already exists'}), 409
+        return jsonify({"Error": 'already registered'}), 409
 
     if User.query.filter_by(username=request.json['username']).first() is not None:
         return jsonify({"Error": 'username already exists'}), 409
@@ -29,17 +29,19 @@ def register():
     if request.json['password'] != request.json['confirm_password']:
         return jsonify({"Error": 'password doesnt match'})
 
-    hashed_password = bcrypt.generate_password_hash(request.json['password']).decode('utf-8')
-    new_user = User(username=request.json['username'],
-                    email=request.json['email'],
-                    password=hashed_password)
+    user = User(username=request.json['username'],
+                email=request.json['email'],
+                password=request.json['password'])
 
-    db.session.add(new_user)
+    db.session.add(user)
     db.session.commit()
-    login_user(new_user)
+    login_user(user)
 
-    resp = sendmail(current_user.id, request.json['email'])
-    return jsonify(current_user.id), 201
+    sendmail.delay(current_user.id, request.json['email'])
+
+    resp = jsonify(user.to_json())
+    resp.status_code = 201
+    return resp
 
 
 @users.route("/user/confirm-email/<token>")
@@ -53,8 +55,7 @@ def confirm_email(token):
     if session['token' + str(current_user.id)] != token:
         return jsonify({"Error": 'Wrong token'}), 400
 
-    user.confirm_id = True
-    user.confirmed_on = datetime.now()
+    user.confirm_email()
     session.pop('token' + str(current_user.id))
     db.session.commit()
     return jsonify({"Action": 'Email confirmed'}), 201
@@ -63,17 +64,19 @@ def confirm_email(token):
 @users.route('/user/login', methods=['POST'])
 @validate_json(login_user_schema)
 def login():
+    from app.common.email import sendmail
+
     if current_user.is_authenticated:
         return jsonify({"Error": 'already loggedIn'}), 404
 
     user = User.query.filter_by(email=request.json['email']).first()
-    print(user.password)
-    if not user and bcrypt.check_password_hash(user.password, request.json['password']):
+
+    if not user and user.verify_password(request.json['password']):
         return jsonify({"Error": 'Wrong email or password'}, user.email, user.password), 401
 
-    if not user.confirm_id:
+    if not user.confirmed_at:
         login_user(user)
-        sendmail(user.id, user.email)
+        sendmail.delay(user.id, user.email)
         return jsonify({"Action": 'verification email sent'}), 200
 
     login_user(user)
@@ -82,24 +85,23 @@ def login():
 
 @users.route('/user/change-password', methods=['POST'])
 @validate_json(change_password_schema)
-# @login_required
+@login_required
 def change_password():
     if not current_user.is_authenticated:
         return jsonify({"Error": 'Not loggedIn'}), 404
 
-    if not User.query.get(current_user.id).confirm_id:
+    if not User.query.get(current_user.id).confirm_at:
         return jsonify({"Error": 'Email is not verified'}), 400
 
     user = User.query.get(current_user.id)
 
-    if user and bcrypt.check_password_hash(user.password, request.json['old_password']):
+    if user and user.verify_password(request.json['old_password']):
         return jsonify({"Error": 'old password is wrong'}), 400
 
     if request.json['new_password'] != request.json['confirm_password']:
         return jsonify({"Error": 'password doesnt match'})
 
-    hashed_password = bcrypt.generate_password_hash(request.json['new_password']).decode('utf-8')
-    user.password = hashed_password
+    user.change_password(request.json['new_password'])
     db.session.commit()
     return jsonify({"Action": 'password changed'}), 201
 
@@ -111,21 +113,11 @@ def logout():
     return jsonify({"Action": 'Logged Out'}), 200
 
 
-@users.route('/user', methods=['DELETE'])
-def delete_user():
-    user = User.query.all()
-    for u in user:
-        db.session.delete(u)
-        db.session.commit()
-    return jsonify({"Action": 'del hogae'}), 200
+@users.route('/user/<user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    user = db.session.query(User).filter_by(id=user_id).first()
 
+    db.session.delete(user)
+    db.session.commit()
 
-@celery.task
-def sendmail(uid, recipient):
-    session['token' + str(uid)] = secrets.token_hex(8)
-    msg = Message('Email verification request',
-                  sender='donotreplytesting121@gmail.com',
-                  recipients=[recipient])
-    msg.body = url_for("users.confirm_email", token=session['token' + str(uid)], _external=True)
-    mail.send(msg)
-    return 'verification email has been sent'
+    return jsonify({"Action": 'user deleted'}), 200

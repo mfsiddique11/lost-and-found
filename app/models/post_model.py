@@ -4,7 +4,7 @@ from app import db
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    description = db.Column(db.String(), nullable=False)
+    description = db.Column(db.String(255), nullable=False)
     title = db.Column(db.String(255), nullable=False)
     location = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)

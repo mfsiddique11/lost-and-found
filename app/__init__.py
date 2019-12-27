@@ -15,8 +15,6 @@ login_manager = LoginManager()
 def create_app(config_class):
     app = Flask(__name__)
     app.config.from_object(config_class)
-
-
     with app.app_context():
         db.init_app(app)
         db.app = app
@@ -26,12 +24,8 @@ def create_app(config_class):
 
         from app.web.users.api import users
         from app.web.posts.api import posts
-        from app.web.categories.api import categories
 
         app.register_blueprint(users)
         app.register_blueprint(posts)
-        app.register_blueprint(categories)
 
     return app
-
-

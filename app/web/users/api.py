@@ -1,10 +1,10 @@
 from datetime import datetime
 
-from flask import request, jsonify, session, Blueprint
+from flask import request, jsonify, session, Blueprint, url_for
 from flask_login import login_user, logout_user, current_user, login_required
 
 from app import db, bcrypt
-from app.models.user_model import User
+from app.models.user_model import User, Role
 
 from app.web.users.schemas import *
 from app.common.decorators.validate_json import validate_json
@@ -18,9 +18,24 @@ def register():
     from app.common.email import sendmail
 
     if current_user.is_authenticated:
+        if not current_user.confirmed_at:
+            token = current_user.generate_confirmation_token()
+            url = url_for('users.confirm_email', token=token)
+            sendmail.delay(url, request.json['email'])
+
+            return jsonify({"Action": 'verification email sent'}), 200
         return jsonify({"Error": 'already loggedIn'}), 404
 
-    if User.query.filter_by(email=request.json['email']).first() is not None:
+    user = User.query.filter_by(email=request.json['email']).first()
+    if user is not None:
+        if not user.confirmed_at:
+            login_user(user)
+            token = user.generate_confirmation_token()
+            url = url_for('users.confirm_email', token=token)
+            sendmail.delay(url, request.json['email'])
+
+            return jsonify({"Action": 'verification email sent'}), 200
+
         return jsonify({"Error": 'already registered'}), 409
 
     if User.query.filter_by(username=request.json['username']).first() is not None:
@@ -29,15 +44,18 @@ def register():
     if request.json['password'] != request.json['confirm_password']:
         return jsonify({"Error": 'password doesnt match'})
 
+    role = db.session.query(Role).filter_by(name='member').first()
+
     user = User(username=request.json['username'],
                 email=request.json['email'],
                 password=request.json['password'])
-
+    role.users.append(user)
     db.session.add(user)
     db.session.commit()
     login_user(user)
-
-    sendmail.delay(current_user.id, request.json['email'])
+    token = user.generate_confirmation_token()
+    url = url_for('users.confirm_email', token=token)
+    sendmail.delay(url, request.json['email'])
 
     resp = jsonify(user.to_json())
     resp.status_code = 201
@@ -47,16 +65,13 @@ def register():
 @users.route("/user/confirm-email/<token>")
 @login_required
 def confirm_email(token):
-    user = User.query.get(current_user.id)
 
-    if user.confirm_id:
+    if current_user.confirmed_at:
         return jsonify({"Error": 'Email already verified'}), 400
 
-    if session['token' + str(current_user.id)] != token:
+    if not current_user.confirm(token):
         return jsonify({"Error": 'Wrong token'}), 400
 
-    user.confirm_email()
-    session.pop('token' + str(current_user.id))
     db.session.commit()
     return jsonify({"Action": 'Email confirmed'}), 201
 
@@ -83,17 +98,17 @@ def login():
     return jsonify({"Action": 'loggedIn'}), 200
 
 
-@users.route('/user/change-password', methods=['POST'])
+@users.route('/user/<user_id>/change-password', methods=['POST'])
 @validate_json(change_password_schema)
 @login_required
-def change_password():
+def change_password(user_id):
     if not current_user.is_authenticated:
         return jsonify({"Error": 'Not loggedIn'}), 404
 
-    if not User.query.get(current_user.id).confirm_at:
+    if not User.query.get(user_id).confirm_at:
         return jsonify({"Error": 'Email is not verified'}), 400
 
-    user = User.query.get(current_user.id)
+    user = User.query.get(user_id)
 
     if user and user.verify_password(request.json['old_password']):
         return jsonify({"Error": 'old password is wrong'}), 400
@@ -103,7 +118,7 @@ def change_password():
 
     user.change_password(request.json['new_password'])
     db.session.commit()
-    return jsonify({"Action": 'password changed'}), 201
+    return jsonify({"Action": 'password changed'}, user.to_json()), 201
 
 
 @users.route('/user/logout')
@@ -120,4 +135,4 @@ def delete_user(user_id):
     db.session.delete(user)
     db.session.commit()
 
-    return jsonify({"Action": 'user deleted'}), 200
+    return jsonify({"Action": 'user deleted'}), 204

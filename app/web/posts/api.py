@@ -5,36 +5,41 @@ from flask import request, jsonify, Blueprint, current_app
 from flask_login import current_user, login_required
 
 from app import db
-from app.decorators.category_required import category_required
 
 from app.common.decorators.validate_json import validate_json
-from app.models.category_model import Category
-from app.models.post_model import Post
+from app.models.common.picture_model import Picture
+from app.models.post_model import Post, Category
 from app.web.posts.schemas import update_post_schema, add_post_schema
 
 posts = Blueprint('posts', '__name__')
 
 
-@posts.route('/post', methods=['POST'])
-@login_required
-@category_required
-@validate_json(add_post_schema)
-def add_post():
-    image = request.files['image']
+def picture_save(image):
     image_name, image_ext = os.path.splitext(image.filename)
     picture = image_name + secrets.token_hex(4) + image_ext
 
     image_path = os.path.join(current_app.root_path, 'static/pictures', picture)
     image.save(image_path)
+    return image_path
 
-    new_post = Post(itemName=request.form['itemName'],
-                    location=request.form['location'],
-                    description=request.form['description'],
-                    pic=picture,
-                    poster=current_user,
-                    postcategory=Category.query.get(int(request.form['category'])))
 
-    db.session.add(new_post)
+@posts.route('/post', methods=['POST'])
+@login_required
+@validate_json(add_post_schema)
+def add_post():
+    image = picture_save(request.files['image'])
+    category = db.session.query(Category).filter_by(name='lost').first()
+
+    post = Post(title=request.form['title'],
+                location=request.form['location'],
+                description=request.form['description'],
+                user_id=current_user.id,
+                category_id=category.id)
+
+    picture = Picture(name=image, post_id=post.id)
+    db.session.add(post)
+    db.session.add(picture)
+
     db.session.commit()
     return jsonify({"Action": 'post created'}), 201
 
@@ -44,7 +49,7 @@ def add_post():
 def get_post(post_id):
     post = Post.query.get(post_id)
     if post:
-        return jsonify(post), 200
+        return jsonify(post.to_json()), 200
     return jsonify({"Error": 'No post found'}), 404
 
 
@@ -53,7 +58,7 @@ def get_post(post_id):
 def get_posts():
     post = current_user.posts.all()
     if post:
-        return jsonify(post), 200
+        return jsonify(post.to_json()), 200
     return jsonify({"Error": 'No post found'}), 404
 
 

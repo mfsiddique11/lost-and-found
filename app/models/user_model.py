@@ -1,5 +1,8 @@
 from datetime import datetime
+
+from flask import current_app
 from flask_login import UserMixin
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from app import db, login_manager, bcrypt
 
 
@@ -17,8 +20,7 @@ class User(db.Model, UserMixin):
     confirmed_at = db.Column(db.DateTime, default=None)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
 
-    profile = db.relationship('Profile', backref='user_profile', cascade="all, delete-orphan", lazy='dynamic',
-                              uselist=False)
+    profile = db.relationship('Profile', backref='user_profile', cascade="all, delete-orphan", uselist=False)
     posts = db.relationship('Post', backref='poster', cascade="all, delete-orphan", lazy='dynamic')
     role_id = db.Column(db.Integer, db.ForeignKey('role.id'))
 
@@ -44,15 +46,28 @@ class User(db.Model, UserMixin):
         return bcrypt.check_password_hash(password, self.password)
 
     def change_password(self, password):
-        self.password(password)
+        self.hash_password(password)
 
-    def confirm_email(self):
+    def generate_confirmation_token(self, expiration=3600):
+        s = Serializer(current_app.config['SECRET_KEY'], expiration)
+        return s.dumps({'confirm': self.id}).decode('utf-8')
+
+    def confirm(self, token):
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token.encode('utf-8'))
+        except:
+            return False
+        if data.get('confirm') != self.id:
+            return False
         self.confirmed_at = datetime.utcnow()
+        db.session.add(self)
+        return True
 
 
 class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), db.Enum("owner", "admin", "member"), unique=True, nullable=False)
+    name = db.Column(db.String(255), db.Enum("admin", "member"), unique=True, nullable=False)
 
     users = db.relationship('User', backref='user_role', cascade="all, delete-orphan", lazy='dynamic')
 

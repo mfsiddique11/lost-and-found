@@ -1,66 +1,31 @@
-from celery import Celery
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from flask_mail import Mail
-from app.config import Config, TestingConfig
+from flask_sqlalchemy import SQLAlchemy
+from flask import Flask
 
-app = Flask(__name__)
-# app.testing=True
-# app.login_disabled=True
-app.config.from_object(Config)
+from app.config import Config
 
-mail = Mail(app)
-
-app.config['CELERY_BROKER_URL'] = 'amqp://rabbitmq:rabbitmq@rabbit:5672/'
-app.config['CELERY_RESULT_BACKEND'] = 'amqp://rabbitmq:rabbitmq@rabbit:5672/'
-
-celery = Celery(app.import_name, backend=app.config['CELERY_RESULT_BACKEND'], broker=app.config['CELERY_BROKER_URL'])
-celery.conf.update(app.config)
-
-db = SQLAlchemy(app)
-db.init_app(app)
-bcrypt = Bcrypt(app)
-
-login_manager = LoginManager(app)
-
-# login_manager.login_view = return jsonify({"Error": "LogIn is required"}), 403
+mail = Mail()
+db = SQLAlchemy()
+bcrypt = Bcrypt()
+login_manager = LoginManager()
 
 
-from app.web.users.api import users
-from app.web.posts.api import posts
-from app.web.categories.api import categories
-
-app.register_blueprint(users)
-app.register_blueprint(posts)
-app.register_blueprint(categories)
-
-
-def create_app():
+def create_app(config_class):
     app = Flask(__name__)
-    app.testing = True
-    app.config['TESTING'] = True
-    app.config.from_object(TestingConfig)
+    app.config.from_object(config_class)
+    with app.app_context():
+        db.init_app(app)
+        db.app = app
+        login_manager.init_app(app)
+        mail.init_app(app)
+        bcrypt.init_app(app)
 
-    db = SQLAlchemy(app)
+        from app.web.users.api import users
+        from app.web.posts.api import posts
 
-    db.init_app(app)
+        app.register_blueprint(users)
+        app.register_blueprint(posts)
 
-    login_manager = LoginManager(app)
-
-    # login_manager.login_view = return jsonify({"Error": "LogIn is required"}), 403
-
-    mail = Mail(app)
-
-    app.register_blueprint(users)
-    app.register_blueprint(posts)
-    app.register_blueprint(categories)
-
-    # @app.route('/ping', methods=['GET'])
-    # def ping_pong():
-    #     return jsonify({
-    #         'status': 'Epic success',
-    #         'message': 'pong!'
-    #     })
     return app

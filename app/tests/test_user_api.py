@@ -34,16 +34,16 @@ def test_register(app):
 
     assert resp.status_code == 200
 
-    client = app.test_client()
-
-    data = {
-        "old_password": "Faizan12345",
-        "new_password": "Faizan12345",
-        "confirm_password": "Faizan12345",
-    }
-
-    resp = client.post(url_for('users.change_password'), data=json.dumps(data),
-                       headers={'Content-Type': 'application/json'})
-    print(resp.data)
-    assert resp.status_code == 201
+    # client = app.test_client()
+    #
+    # data = {
+    #     "old_password": "Faizan12345",
+    #     "new_password": "Faizan12345",
+    #     "confirm_password": "Faizan12345",
+    # }
+    #
+    # resp = client.post(url_for('users.change_password'), data=json.dumps(data),
+    #                    headers={'Content-Type': 'application/json'})
+    # print(resp.data)
+    # assert resp.status_code == 201
 
